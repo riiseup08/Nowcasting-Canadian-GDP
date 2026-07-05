@@ -41,6 +41,8 @@ jobs:
           git add models/
           # Commit only if there are changes
           git diff --quiet && git diff --staged --quiet || git commit -m "auto: monthly model update [skip ci]"
+          # Re-sync in case main moved while the job was running, then push
+          git pull --rebase --autostash https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/riiseup08/Nowcasting-Canadian-GDP.git main
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/riiseup08/Nowcasting-Canadian-GDP.git main
 
       - name: Generate LLM-powered digest
