@@ -26,8 +26,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run ETL pipeline → save local CSV
+      - name: Run ETL pipeline → save local CSV + push to Supabase
         run: python transform.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Retrain model → save metrics
         run: python train_model.py
@@ -45,6 +47,7 @@ jobs:
         run: python send_digest.py
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Send digest email
         uses: dawidd6/action-send-mail@v3
