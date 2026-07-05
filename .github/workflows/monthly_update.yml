@@ -50,6 +50,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Send digest email
+        continue-on-error: true  # a mail issue must not fail the whole run
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -58,6 +59,6 @@ jobs:
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: 📊 GDP Nowcast Digest — Monthly Update
           to: monthe1994@gmail.com
-          from: GDP Nowcast Bot
+          from: GDP Nowcast Bot <${{ secrets.SMTP_USERNAME }}>
           html_body: file://output/digest.html
           secure: false
