@@ -1,0 +1,27 @@
+# Environment variables
+.env
+
+# Data files (all raw + processed)
+data/*.zip
+data/*/
+data/processed/*.csv
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Models (binary files)
+models/*.pkl
+!models/*.json
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+__pycache__/
+
+# Streamlit
+.streamlit/
+
+# OS files
+Thumbs.db
+.DS_Store

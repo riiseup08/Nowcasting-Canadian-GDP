@@ -1,0 +1,11 @@
+{
+  "training_date": "2026-07-04",
+  "training_rows": 352,
+  "n_features": 21,
+  "cv_avg_mae": 107944.40396428571,
+  "cv_mae_pct": 6.0340125757156216,
+  "date_min": "1997-01-01",
+  "date_max": "2026-04-01",
+  "model_type": "RandomForestRegressor",
+  "n_estimators": 100
+}
