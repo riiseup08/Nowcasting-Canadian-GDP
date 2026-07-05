@@ -375,7 +375,7 @@ with st.expander("📋 Data summary & actions"):
     st.write(f"**Training rows:** {train.shape[0]} (GDP published)")
     st.write(f"**Nowcast rows:** {df[TARGET].isna().sum()} (GDP not yet published)")
 
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     with c1:
         if st.button("🔄 Refresh data (re-run transform)"):
             with st.spinner("Running transform.py..."):
@@ -393,6 +393,19 @@ with st.expander("📋 Data summary & actions"):
             st.success("Model retrained! Reloading...")
             st.cache_resource.clear()
             st.rerun()
+
+    with c3:
+        if st.button("📧 Send digest now"):
+            with st.spinner("Generating and emailing digest..."):
+                result = subprocess.run(
+                    [sys.executable, "send_digest.py"],
+                    cwd=Path(__file__).resolve().parent.parent,
+                    capture_output=True, text=True,
+                )
+            if result.returncode == 0:
+                st.success("✅ Digest generated! It will be emailed by the next GitHub Action run.")
+            else:
+                st.error(f"send_digest.py failed:\n{result.stderr[-1000:]}")
 
 # ── Senior Economist Agent — Chat Sidebar ────────────────────────────────────
 st.sidebar.title("💬 Senior Economist")
