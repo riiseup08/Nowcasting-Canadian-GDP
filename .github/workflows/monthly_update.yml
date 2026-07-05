@@ -49,6 +49,11 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
+      - name: Verify digest HTML exists
+        run: |
+          ls -la output/
+          test -s output/digest.html && echo "digest.html OK ($(wc -c < output/digest.html) bytes)"
+
       - name: Send digest email
         continue-on-error: true  # a mail issue must not fail the whole run
         uses: dawidd6/action-send-mail@v3
@@ -61,4 +66,8 @@ jobs:
           to: monthe1994@gmail.com
           from: GDP Nowcast Bot <${{ secrets.SMTP_USERNAME }}>
           html_body: file://output/digest.html
+          body: "Your monthly GDP Nowcast digest is in the HTML version of this email."
+          reply_to: monthe1994@gmail.com
           secure: false
+          nodemailerlog: true
+          nodemailerdebug: true
