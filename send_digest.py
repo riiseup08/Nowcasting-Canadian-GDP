@@ -47,17 +47,45 @@ OUTPUT_DIR = Path("output")
 TARGET = "gdp_value"
 
 
-# ── 1. Load data from Supabase ───────────────────────────────────────────────
+# ── 1. Load data (Supabase → CSV fallback) ───────────────────────────────────
 
-def load_data_from_warehouse() -> pd.DataFrame:
-    """Load the feature-engineered dataset from Supabase."""
-    from warehouse import get_connection, load_training_data
-    print("  [digest] Loading data from Supabase...")
-    conn = get_connection()
-    df = load_training_data(conn)
-    conn.close()
-    df = df.sort_values("date").reset_index(drop=True)
-    return df
+def _warehouse_configured() -> bool:
+    """True if a Supabase/PostgreSQL connection is configured via env."""
+    return bool(os.getenv("DATABASE_URL") or os.getenv("DB_HOST"))
+
+def load_data() -> pd.DataFrame:
+    """Load the feature-engineered dataset. Try Supabase first, fall back to CSV."""
+    CSV_PATH = Path("data/processed/training_data.csv")
+
+    # 1. Try Supabase silently
+    if _warehouse_configured():
+        try:
+            from warehouse import get_connection, load_training_data
+            print("  [digest] Loading data from Supabase...")
+            conn = get_connection()
+            df = load_training_data(conn)
+            conn.close()
+            df = df.sort_values("date").reset_index(drop=True)
+            if len(df):
+                return df
+        except Exception:
+            pass
+
+    # 2. Fall back to CSV — auto-run transform.py if missing
+    if not CSV_PATH.exists():
+        print("  [digest] CSV not found. Running transform.py to download data...")
+        import subprocess, sys
+        result = subprocess.run(
+            [sys.executable, "transform.py"],
+            capture_output=True, text=True,
+        )
+        if not CSV_PATH.exists():
+            raise RuntimeError(
+                f"transform.py failed to produce {CSV_PATH}.\n{result.stderr[-2000:]}"
+            )
+    print(f"  [digest] Loading data from {CSV_PATH}...")
+    df = pd.read_csv(CSV_PATH, parse_dates=["date"])
+    return df.sort_values("date").reset_index(drop=True)
 
 
 def load_model_artifacts():
@@ -471,8 +499,8 @@ def main():
     print("=" * 50)
 
     # 1. Load data
-    print("\n  [1/5] Loading data from Supabase...")
-    df = load_data_from_warehouse()
+    print("\n  [1/5] Loading data...")
+    df = load_data()
     print(f"  -> {df.shape[0]} rows loaded")
 
     # 2. Load model
