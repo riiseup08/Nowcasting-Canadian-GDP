@@ -91,14 +91,26 @@ def load_data() -> pd.DataFrame:
         except Exception as e:
             st.warning(f"Could not load from Supabase ({e}). Falling back to local CSV.")
 
-    # 2. Fall back to the local CSV cache
+    # 2. Fall back to the local CSV cache — auto-run transform.py if missing
     if not CSV_PATH.exists():
-        st.error(
-            "No data source available. Either configure the Supabase connection "
-            "(DATABASE_URL / DB_* secrets) or run `python transform.py` to create "
-            f"{CSV_PATH}."
+        st.warning(
+            "No cached data found. Running `python transform.py` to download "
+            "data from Statistics Canada (this may take 30–60 seconds)..."
         )
-        st.stop()
+        with st.spinner("Downloading StatCan data and engineering features..."):
+            result = subprocess.run(
+                [sys.executable, "transform.py"],
+                cwd=Path(__file__).resolve().parent.parent,
+                capture_output=True, text=True,
+            )
+        if not CSV_PATH.exists():
+            st.error(
+                f"`transform.py` failed to produce {CSV_PATH}.\n\n"
+                f"**stdout:**\n```\n{result.stdout[-2000:]}\n```\n\n"
+                f"**stderr:**\n```\n{result.stderr[-2000:]}\n```"
+            )
+            st.stop()
+        st.success("Data downloaded and features engineered successfully!")
     df = pd.read_csv(CSV_PATH, parse_dates=["date"])
     return df
 
