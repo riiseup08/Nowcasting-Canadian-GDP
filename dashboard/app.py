@@ -64,11 +64,40 @@ def load_model():
     return model, feature_cols, metrics
 
 
+def _warehouse_configured() -> bool:
+    """True if a Supabase/PostgreSQL connection is configured via env/secrets."""
+    return bool(os.getenv("DATABASE_URL") or os.getenv("DB_HOST"))
+
+
 @st.cache_data
 def load_data() -> pd.DataFrame:
-    """Load the feature-engineered dataset from CSV."""
+    """
+    Load the feature-engineered dataset.
+
+    Prefers the Supabase/PostgreSQL warehouse (used in production / Streamlit
+    Cloud). Falls back to the local CSV cache for offline development.
+    """
+    # 1. Try the warehouse first when a connection is configured
+    if _warehouse_configured():
+        try:
+            from warehouse import get_connection, load_training_data
+            conn = get_connection()
+            df = load_training_data(conn)
+            conn.close()
+            df = df.sort_values("date").reset_index(drop=True)
+            if len(df):
+                return df
+            st.warning("Warehouse table is empty — falling back to local CSV.")
+        except Exception as e:
+            st.warning(f"Could not load from Supabase ({e}). Falling back to local CSV.")
+
+    # 2. Fall back to the local CSV cache
     if not CSV_PATH.exists():
-        st.error(f"Data file not found: {CSV_PATH}. Run `python transform.py` first.")
+        st.error(
+            "No data source available. Either configure the Supabase connection "
+            "(DATABASE_URL / DB_* secrets) or run `python transform.py` to create "
+            f"{CSV_PATH}."
+        )
         st.stop()
     df = pd.read_csv(CSV_PATH, parse_dates=["date"])
     return df

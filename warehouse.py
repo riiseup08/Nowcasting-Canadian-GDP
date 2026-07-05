@@ -38,7 +38,15 @@ TABLE_NAME = "gdp_nowcast_training"
 
 
 def get_db_url() -> str:
-    """Build the PostgreSQL connection URL from environment variables."""
+    """
+    Build the PostgreSQL connection URL.
+
+    Prefers a full ``DATABASE_URL`` (e.g. the Supabase connection string) if set,
+    otherwise assembles one from the individual DB_* components.
+    """
+    url = os.getenv("DATABASE_URL")
+    if url:
+        return url
     host = os.getenv("DB_HOST", "localhost")
     port = os.getenv("DB_PORT", "5432")
     name = os.getenv("DB_NAME", "postgres")
@@ -137,7 +145,7 @@ def save_training_data(conn, df: pd.DataFrame):
         conn.execute(text(upsert_sql), clean)
 
     conn.commit()
-    print(f"  ✅ Upserted {len(df)} rows to warehouse table '{TABLE_NAME}'")
+    print(f"  [ok] Upserted {len(df)} rows to warehouse table '{TABLE_NAME}'")
 
 
 def load_training_data(conn) -> pd.DataFrame:

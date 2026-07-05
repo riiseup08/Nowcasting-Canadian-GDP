@@ -248,7 +248,38 @@ python train_model.py --warehouse
 
 ### Step 5: Dashboard with Supabase
 
-The dashboard automatically detects the PostgreSQL connection and uses it. If Supabase is unavailable, it falls back to the local CSV.
+The dashboard automatically detects the PostgreSQL connection (`DATABASE_URL` or the `DB_*` variables) and loads from it. If Supabase is unavailable or unconfigured, it falls back to the local CSV.
+
+---
+
+## ☁️ Deploying the dashboard to Streamlit Cloud
+
+The deployed app has no local CSV (`data/processed/*.csv` is git-ignored), so it **must** read from Supabase.
+
+### 1. Use the Session Pooler connection string (IPv4)
+
+> ⚠️ **Do not use the "Direct connection" string** (`db.<ref>.supabase.co:5432`). On the Supabase free tier that host is **IPv6-only**, and Streamlit Community Cloud is IPv4-only — the app will fail with a connection timeout.
+
+In the Supabase Dashboard click **Connect** → choose **Session pooler**. The string looks like:
+
+```
+postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+```
+
+### 2. Add it to Streamlit secrets
+
+In the Streamlit Cloud app → **Settings → Secrets**, paste (TOML format):
+
+```toml
+DATABASE_URL = "postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
+DEEPSEEK_API_KEY = "sk-..."
+```
+
+Streamlit exposes these as environment variables, which `warehouse.py` reads automatically — no code change needed.
+
+### 3. Deploy
+
+Point Streamlit Cloud at this repo with main file `dashboard/app.py`. The app will load the 407-row dataset directly from Supabase.
 
 ---
 
