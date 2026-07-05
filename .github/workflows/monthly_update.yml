@@ -49,6 +49,14 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
+      - name: Debug SMTP secret presence (safe — prints lengths only, not values)
+        run: |
+          echo "SMTP_USERNAME length: ${#SMTP_USERNAME}"
+          echo "SMTP_PASSWORD length: ${#SMTP_PASSWORD}"
+        env:
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+
       - name: Verify digest HTML exists
         run: |
           ls -la output/
