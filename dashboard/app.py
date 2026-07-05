@@ -77,7 +77,7 @@ def load_data() -> pd.DataFrame:
     Prefers the Supabase/PostgreSQL warehouse (used in production / Streamlit
     Cloud). Falls back to the local CSV cache for offline development.
     """
-    # 1. Try the warehouse first when a connection is configured
+    # 1. Try the warehouse first when a connection is configured (silently)
     if _warehouse_configured():
         try:
             from warehouse import get_connection, load_training_data
@@ -87,17 +87,12 @@ def load_data() -> pd.DataFrame:
             df = df.sort_values("date").reset_index(drop=True)
             if len(df):
                 return df
-            st.warning("Warehouse table is empty — falling back to local CSV.")
-        except Exception as e:
-            st.warning(f"Could not load from Supabase ({e}). Falling back to local CSV.")
+        except Exception:
+            pass  # Warehouse unavailable — fall through to CSV
 
     # 2. Fall back to the local CSV cache — auto-run transform.py if missing
     if not CSV_PATH.exists():
-        st.warning(
-            "No cached data found. Running `python transform.py` to download "
-            "data from Statistics Canada (this may take 30–60 seconds)..."
-        )
-        with st.spinner("Downloading StatCan data and engineering features..."):
+        with st.spinner("⏳ Downloading live data from Statistics Canada..."):
             result = subprocess.run(
                 [sys.executable, "transform.py"],
                 cwd=Path(__file__).resolve().parent.parent,
@@ -110,7 +105,6 @@ def load_data() -> pd.DataFrame:
                 f"**stderr:**\n```\n{result.stderr[-2000:]}\n```"
             )
             st.stop()
-        st.success("Data downloaded and features engineered successfully!")
     df = pd.read_csv(CSV_PATH, parse_dates=["date"])
     return df
 
