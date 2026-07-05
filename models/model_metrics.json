@@ -1,5 +1,5 @@
 {
-  "training_date": "2026-07-04",
+  "training_date": "2026-07-05",
   "training_rows": 352,
   "n_features": 21,
   "cv_avg_mae": 107944.40396428571,
