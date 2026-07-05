@@ -57,7 +57,7 @@ jobs:
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: 📊 GDP Nowcast Digest — Monthly Update
-          to: ${{ secrets.EMAIL_TO }}
+          to: monthe1994@gmail.com
           from: GDP Nowcast Bot
           html_body: file://output/digest.html
           secure: false
