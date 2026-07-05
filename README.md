@@ -20,30 +20,25 @@ Monthly nowcast of Canadian gross domestic product (GDP, chained 2017 dollars, s
 ├── train_model.py          ★ MODEL — trains Random Forest & saves to models/
 ├── run_nowcast.ipynb       ★ MODEL — notebook with 5 models & nowcast output
 │
+├── agent/
+│   ├── __init__.py
+│   ├── tools.py            # Tool functions for the AI agent
+│   └── graph.py            # LangGraph agent powered by DeepSeek
+│
 ├── dashboard/
 │   ├── __init__.py
 │   └── app.py              ★ DASHBOARD — Streamlit interactive dashboard
 │
-├── data/
-│   ├── 36-10-0434-01.zip    # RAW — Gross domestic product (GDP) at basic prices, by industry, monthly
-│   ├── 14-10-0287-01.zip    # RAW — Labour force characteristics, monthly
-│   ├── 18-10-0004-01.zip    # RAW — Consumer price index, monthly
-│   ├── 16-10-0047-01.zip    # RAW — Monthly survey of manufacturing
-│   ├── 36-10-0434-01/       # RAW — Extracted CSV folder (GDP)
-│   ├── 14-10-0287-01/       # RAW — Extracted CSV folder (Labour Force Survey)
-│   ├── 18-10-0004-01/       # RAW — Extracted CSV folder (Consumer Price Index)
-│   ├── 16-10-0047-01/       # RAW — Extracted CSV folder (Monthly Survey of Manufacturing)
-│   └── processed/
-│       └── training_data.csv # ★ WAREHOUSE — clean, merged, feature-engineered dataset
-│
 ├── models/
-│   ├── nowcast_model.pkl    # Trained Random Forest model (joblib)
-│   ├── feature_cols.pkl     # Feature column names (joblib)
 │   └── model_metrics.json   # CV metrics in JSON
 │
+├── .env.example
+├── .gitignore
 ├── requirements.txt
 └── README.md
 ```
+
+> **Note:** Raw data (StatCan ZIP/CSV files), processed data (`training_data.csv`), and model binaries (`.pkl`) are excluded from git. Run `python transform.py` to download the data locally.
 
 ---
 
@@ -98,7 +93,7 @@ data/processed/training_data.csv
 
 This file acts as the **data warehouse** — a single, flat, ready-to-query table containing all 21 features, the GDP target column, and the date column.
 
-This is the "Load" step: the transformed data is stored in a persistent location so the modelling step can read it without re-running the entire ETL process.
+You can also write to a **PostgreSQL / Supabase** database instead (see the [Supabase Setup](#-loading-to-supabase-postgresql) section).
 
 ### 4. MODELS — Five ML models compared
 
@@ -156,14 +151,7 @@ This downloads all four StatCan tables, cleans, filters, merges, engineers 21 fe
   ✅ Saved to data\processed\training_data.csv  (114,734 bytes)
 ```
 
-### 3. Train the Random Forest model (optional — pre-trained model included)
-```bash
-python train_model.py
-```
-
-Trains a Random Forest with 4-fold TimeSeries CV, saves the model + feature columns + metrics to `models/`.
-
-### 4. Run the nowcast notebook
+### 3. Run the nowcast notebook
 Open `run_nowcast.ipynb` in VS Code or Jupyter and run all cells — or execute from the command line:
 ```bash
 jupyter nbconvert --to notebook --execute run_nowcast.ipynb --output run_nowcast_output.ipynb
@@ -173,41 +161,110 @@ The notebook loads the warehouse table, trains all 5 models, and prints a compar
 
 **Expected output (models comparison):**
 ```
-Model                   Nowcast        Error      MAE%     CV MAE   CV MAE%
------------------------------------------------------------------------------
-OLS Regression          2,416,653      63,750    2.71%    109,450    6.12%
-Ridge Regression        2,396,588      43,685    1.86%    109,425    6.11%
-SVR (RBF)               2,489,232     136,329    5.79%    275,462   15.39%
-Gradient Boosting       2,367,198      14,295    0.61%    127,253    7.11%
-Random Forest           2,348,573       4,330    0.18%    107,944    6.03%  ← best
+Model                       Nowcast        Error     MAE%      CV MAE  CV MAE%
+--------------------------------------------------------------------------
+OLS Regression            2,416,653       63,750    2.71%      60,638    3.39%
+Ridge Regression          2,416,779       63,876    2.71%      59,790    3.34%  ← best CV
+SVR (RBF)                 1,775,918      576,985   24.52%     348,316   19.47%
+Gradient Boosting         2,351,493        1,410    0.06%     105,850    5.92%
+Random Forest             2,348,573        4,330    0.18%     107,944    6.03%
 ```
 
-### 5. Launch the Streamlit dashboard
+> **Note:** Results vary each time the pipeline runs with updated StatCan data. The values above are from a sample run.
+
+### 4. Launch the Streamlit dashboard
 ```bash
 streamlit run dashboard/app.py
 ```
 
 Opens an interactive web dashboard with:
 - **Metric cards** — nowcast values, CV error, OLS baseline, RF error
-- **Actual vs Predicted chart** — time series with actual GDP, in-sample predictions, and nowcast marker
+- **Multi-model chart** — all 5 model prediction lines vs actual GDP over time
 - **Feature importance bar chart** — top 10 features driving the Random Forest
 - **Model comparison table** — all 5 models side-by-side with nowcast, error, and CV MAE
 - **TimeSeries CV summary** — training rows, date range, model type, last trained
 - **Refresh & retrain buttons** — re-run `transform.py` to fetch new data or `train_model.py` to retrain
+- **Senior Economist AI Agent** — chat sidebar to ask questions about the nowcast
 
 ---
 
-## Model Results (Latest Month)
+## 💬 Senior Economist AI Agent
+
+A conversational agent powered by **DeepSeek** + **LangGraph** lives in the dashboard sidebar. Ask questions like:
+
+- *"What's the current GDP nowcast?"*
+- *"Which model performs best?"*
+- *"How does employment affect GDP?"*
+- *"What was the GDP trend over the last 5 years?"*
+- *"How accurate are the predictions?"*
+
+To use it, set your DeepSeek API key in `.env`:
+```
+DEEPSEEK_API_KEY=sk-your_key_here
+```
+
+---
+
+## 🗄 Loading to Supabase (PostgreSQL)
+
+Instead of reading/writing from a local CSV, you can store the feature-engineered dataset in **Supabase PostgreSQL**.
+
+### Step 1: Create a Supabase project
+
+1. Go to [supabase.com](https://supabase.com) and create an account (free tier available)
+2. Create a new project
+3. Go to **Project Settings → Database** and copy the **Connection string (URI)**
+
+### Step 2: Configure your `.env` file
+
+The connection string looks like:
+```
+postgresql://postgres.xxxxx:password@aws-0-xx-xx-xx.pooler.supabase.com:6543/postgres
+```
+
+Set the individual components in `.env`:
+
+```ini
+DB_HOST=aws-0-xx-xx-xx.pooler.supabase.com
+DB_PORT=6543
+DB_NAME=postgres
+DB_USER=postgres.xxxxx
+DB_PASSWORD=your_password
+```
+
+### Step 3: Write data to Supabase
+
+```bash
+python transform.py --warehouse
+```
+
+This upserts the full dataset into a table called `gdp_nowcast_training`.
+
+### Step 4: Train using Supabase data
+
+```bash
+python train_model.py --warehouse
+```
+
+### Step 5: Dashboard with Supabase
+
+The dashboard automatically detects the PostgreSQL connection and uses it. If Supabase is unavailable, it falls back to the local CSV.
+
+---
+
+## Model Results (Sample — Latest Run)
 
 | Model | Nowcast | Error | CV MAE |
 |-------|---------|-------|--------|
-| OLS Regression | $2,416,653M | $63,750M (2.71%) | $109,450M (6.12%) |
-| Ridge Regression | $2,396,588M | $43,685M (1.86%) | $109,425M (6.11%) |
-| SVR (RBF) | $2,489,232M | $136,329M (5.79%) | $275,462M (15.39%) |
-| Gradient Boosting | $2,367,198M | $14,295M (0.61%) | $127,253M (7.11%) |
+| OLS Regression | $2,416,653M | $63,750M (2.71%) | $60,638M (3.39%) |
+| Ridge Regression | $2,416,779M | $63,876M (2.71%) | $59,790M (3.34%) |
+| SVR (RBF) | $1,775,918M | $576,985M (24.52%) | $348,316M (19.47%) |
+| Gradient Boosting | $2,351,493M | $1,410M (0.06%) | $105,850M (5.92%) |
 | **Random Forest** | **$2,348,573M** | **$4,330M (0.18%)** | **$107,944M (6.03%)** |
 
-**Random Forest** achieves the lowest CV MAE (`$107,944M`, 6.03% of mean GDP) and the closest nowcast to the actual published value (`$2,352,903M`).
+**Random Forest** achieves the lowest nowcast error (`$4,330M`, 0.18%), while **Ridge Regression** has the lowest cross-validated MAE (`$59,790M`, 3.34% of mean GDP).
+
+> **Note:** Results will differ each time you run the pipeline due to updated StatCan data.
 
 ---
 
@@ -270,25 +327,22 @@ The Load step creates one central table (`training_data.csv`). However, the Extr
 | `download.py` | Downloads a file (ZIP or CSV) from a URL via HTTP streaming. If the file is a ZIP archive, it extracts all contents into a target folder. |
 | `loader.py` | Reads a StatCan CSV file from an extracted folder into a pandas DataFrame. Automatically skips any file containing "MetaData" in its name (these are metadata sidecars, not the actual data table). |
 | `clean.py` | Filters a raw StatCan DataFrame by geography (GEO contains "Canada") and by exact dimension column filters. Parses dates (handles both string dates like "2023-01-01" and integer years like 2023). Reduces the table to just `date` and `value` columns with one row per date. |
-| `transform.py` | **Orchestrator** — runs the full Extract-Transform-Load pipeline: downloads all 4 tables, cleans/filters each, merges on date, engineers 21 features (lags + rolling means + growth rates), and saves the result to `data/processed/training_data.csv`. |
+| `transform.py` | **Orchestrator** — runs the full Extract-Transform-Load pipeline: downloads all 4 tables, cleans/filters each, merges on date, engineers 21 features (lags + rolling means + growth rates), and saves the result to `data/processed/training_data.csv`. Supports `--warehouse` to write to PostgreSQL. |
 | `features.py` | Contains three reusable functions: `create_lag_features()` (shifts a column by N periods), `create_rolling_features()` (rolling window means), and `create_growth_rate()` (month-over-month percentage change). |
-| `train_model.py` | Loads the feature-engineered dataset, trains a Random Forest with 4-fold TimeSeries CV, and saves the model + feature columns + metrics to `models/`. |
+| `train_model.py` | Loads the feature-engineered dataset, trains a Random Forest with 4-fold TimeSeries CV, and saves the model + feature columns + metrics to `models/`. Supports `--warehouse` for PostgreSQL. |
 | `run_nowcast.ipynb` | Jupyter notebook that loads the warehouse table, trains **5 models** (OLS, Ridge, SVR, Gradient Boosting, Random Forest) with TimeSeries CV, and outputs a comparison table plus feature importance. |
-| `dashboard/app.py` | **Streamlit dashboard** — interactive web app showing nowcast metrics, actual vs predicted chart, feature importance, model comparison table, and data refresh/retrain controls. |
+| `agent/tools.py` | Five tool functions (`get_nowcast`, `get_model_comparison`, `get_feature_importance`, `get_gdp_trend`, `get_data_summary`) used by the AI agent. |
+| `agent/graph.py` | LangGraph ReAct agent powered by DeepSeek. Builds a state graph with agent/tool nodes and routes between them. |
+| `dashboard/app.py` | **Streamlit dashboard** — interactive web app showing nowcast metrics, multi-model chart, feature importance, model comparison table, and the Senior Economist chat sidebar. |
+| `warehouse.py` | PostgreSQL interface — `get_connection()`, `create_table_if_not_exists()`, `save_training_data()` (upsert), `load_training_data()`. |
 
 ---
 
 ## Dependencies
 
 ```
-pandas
-numpy
-scikit-learn
-streamlit
-plotly
-joblib
-sqlalchemy
-python-dotenv
-requests
-openpyxl
+pandas, numpy, scikit-learn, requests
+streamlit, plotly, joblib
+langgraph, langchain-core, openai
+sqlalchemy, python-dotenv
 jupyter
