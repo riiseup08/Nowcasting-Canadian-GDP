@@ -9,6 +9,7 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
+    environment: supabase  # secrets (SMTP_*, DEEPSEEK_API_KEY, ...) live in this environment
     permissions:
       contents: write  # allow the GITHUB_TOKEN to push the auto-update commit
     steps:
