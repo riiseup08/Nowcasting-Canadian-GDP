@@ -121,10 +121,21 @@ def run_transform():
     print("  ETL - Transform (merge + feature engineering)")
     print("=" * 55)
 
-    # Predictors (inner join — all must be present for a row to be usable)
+    # Predictors (outer join — keep the most recent months even when the
+    # slowest indicator, manufacturing, hasn't been released yet). This is what
+    # lets us produce a genuine forward nowcast for the latest month.
     predictors = [tables["lfs"], tables["cpi"], tables["mfg"]]
-    feat_df = reduce(lambda a, b: pd.merge(a, b, on="date", how="inner"),
+    feat_df = reduce(lambda a, b: pd.merge(a, b, on="date", how="outer"),
                      predictors)
+    feat_df = feat_df.sort_values("date").reset_index(drop=True)
+
+    # Carry the lagging indicator(s) forward for the trailing gap months so the
+    # model has a complete feature row to nowcast on. Forward-fill only (never
+    # back-fill — that would leak future information). Flag the frontier months
+    # where manufacturing was estimated rather than published.
+    predictor_value_cols = ["lfs_value", "cpi_value", "mfg_value"]
+    feat_df["mfg_imputed"] = feat_df["mfg_value"].isna() & feat_df["lfs_value"].notna()
+    feat_df[predictor_value_cols] = feat_df[predictor_value_cols].ffill()
 
     # Left-join GDP so we keep months where GDP hasn't been published yet
     df = pd.merge(feat_df, tables["gdp"], on="date", how="left")

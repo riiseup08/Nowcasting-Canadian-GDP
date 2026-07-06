@@ -261,6 +261,15 @@ with col4:
     else:
         st.info("GDP not yet published — true forward nowcast.")
 
+# Transparency note when the latest month's manufacturing was estimated (the
+# frontier month usually has employment + CPI published but manufacturing not yet)
+if "mfg_imputed" in df.columns and bool(latest["mfg_imputed"].iloc[0]):
+    st.caption(
+        f"ℹ️ Manufacturing sales for **{latest_date}** are not yet published by "
+        "Statistics Canada — the most recent value was carried forward so the model "
+        "can produce this nowcast."
+    )
+
 # ── Chart: all models over time ──────────────────────────────────────────────
 st.subheader("Actual vs All Model Predictions")
 
